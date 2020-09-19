@@ -1,9 +1,7 @@
 ARG SPARK_VERSION=3.0.1
 ARG HADOOP_VERSION=2.7
 ARG SCALA_VERSION=2.12
-ARG LOG4J2_VERSION=2.13.3
 
-# build phase
 FROM alpine:3 as build
 ARG SPARK_VERSION
 ARG HADOOP_VERSION
@@ -24,20 +22,12 @@ RUN mkdir -p ${PROJECT_HOME} \
     && tar -xvzf ${CURL_OUTPUT} --strip-components 1 -C ${PROJECT_HOME} \
     && rm ${CURL_OUTPUT}
 
-ENV DOCKERIZE_VERSION v0.6.1
-RUN wget -q https://github.com/jwilder/dockerize/releases/download/$DOCKERIZE_VERSION/dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && tar -C /usr/local/bin -xzvf dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz \
-    && rm dockerize-alpine-linux-amd64-$DOCKERIZE_VERSION.tar.gz
-
-# build phase
-FROM alpine:3 as build-custom
+FROM openjdk:11-slim-buster as final
 ARG SPARK_VERSION
 ARG HADOOP_VERSION
 
 ENV PROJECT_BASE_DIR /opt/spark
 ENV PROJECT_HOME ${PROJECT_BASE_DIR}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
-
-RUN mkdir -p ${PROJECT_HOME}
 
 COPY --from=build ${PROJECT_HOME}/bin ${PROJECT_HOME}/bin
 COPY --from=build ${PROJECT_HOME}/conf ${PROJECT_HOME}/conf
@@ -48,46 +38,8 @@ COPY --from=build ${PROJECT_HOME}/README.md ${PROJECT_HOME}/README.md
 COPY --from=build ${PROJECT_HOME}/RELEASE ${PROJECT_HOME}/.md
 COPY --from=build ${PROJECT_HOME}/sbin ${PROJECT_HOME}/sbin
 
-# build phase
-FROM build-custom as build-log4j2
-ARG SPARK_VERSION
-ARG SCALA_VERSION
-ARG HADOOP_VERSION
-ARG LOG4J2_VERSION
-
-ENV PROJECT_BASE_DIR /opt/spark
-ENV PROJECT_HOME ${PROJECT_BASE_DIR}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
-
-RUN apk --update add --no-cache \
-  &&   apk add --no-cache maven ca-certificates openssl curl wget \
-  &&   update-ca-certificates \
-  &&   rm -f /var/cache/apk/*
-
-RUN rm ${PROJECT_HOME}/jars/log4j-*.jar \
-  && rm ${PROJECT_HOME}/jars/slf4j-log4j12-*.jar
-
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-api -Dversion=${LOG4J2_VERSION} -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-core -Dversion=${LOG4J2_VERSION} -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-1.2-api -Dversion=${LOG4J2_VERSION} -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-api-scala_${SCALA_VERSION} -Dversion=12.0 -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-jcl -Dversion=${LOG4J2_VERSION} -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-jul -Dversion=${LOG4J2_VERSION} -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-RUN mvn dependency:get -DgroupId=org.apache.logging.log4j -DartifactId=log4j-slf4j-impl -Dversion=${LOG4J2_VERSION} -Dpackaging=jar -Dtransitive=false -Ddest=${PROJECT_HOME}/jars/
-
-FROM openjdk:11-slim-buster as final-root
-ARG SPARK_VERSION
-ARG HADOOP_VERSION
-
-ENV PROJECT_BASE_DIR /opt/spark
-ENV PROJECT_HOME ${PROJECT_BASE_DIR}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
-
-RUN mkdir -p ${PROJECT_HOME}
-COPY --from=build-log4j2 ${PROJECT_HOME} ${PROJECT_HOME}
-
 ENV PATH $PATH:$PROJECT_HOME/bin
 
-#COPY --from=build /usr/local/bin/dockerize /usr/local/bin/dockerize
-COPY ./log4j2.xml ${PROJECT_HOME}/conf/
 COPY ./master.sh ${PROJECT_BASE_DIR}/
 COPY ./worker.sh ${PROJECT_BASE_DIR}/
 COPY ./submit.sh ${PROJECT_BASE_DIR}/
@@ -95,25 +47,8 @@ COPY ./submit.sh ${PROJECT_BASE_DIR}/
 ENV SPARK_HOME ${PROJECT_HOME}
 ENV SPARK_MASTER_HOST spark-master
 ENV SPARK_MASTER_PORT 7077
-ENV SPARK_SCALA_VERSION 2.12
+ENV SPARK_SCALA_VERSION ${SCALA_VERSION}
 
 WORKDIR ${PROJECT_HOME}
 EXPOSE 8080
 CMD [ "/bin/bash" ]
-
-FROM final-root as final
-ARG UID=2020
-ARG GID=2020
-RUN addgroup --gid ${GID} spark \
-  && useradd -s /bin/bash -u ${UID} -g spark --home-dir $PROJECT_BASE_DIR  spark \
-  && chown -R spark:spark ${PROJECT_BASE_DIR}
-USER spark
-
-FROM final-root as jar
-ARG SPARK_VERSION
-ARG HADOOP_VERSION
-
-ENV PROJECT_BASE_DIR /opt/spark
-ENV PROJECT_HOME ${PROJECT_BASE_DIR}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
-
-COPY ./spark-sql-example-1.0.0-SNAPSHOT.jar ${PROJECT_BASE_DIR}/
