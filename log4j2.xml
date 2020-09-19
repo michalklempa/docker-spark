@@ -1,0 +1,45 @@
+<Configuration status="INFO">
+    <Appenders>
+        <!-- # Set everything to be logged to the console -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{yy/MM/dd HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="DEBUG">
+            <AppenderRef ref="Console"/>
+        </Root>
+        <!-- # Set the default spark-shell log level to WARN. When running the spark-shell, the
+             # log level for this class is used to overwrite the root logger's log level, so that
+             # the user can have different defaults for the shell and regular Spark apps. -->
+        <Logger name="org.apache.spark.repl.Main" level="WARN">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <!-- # Settings to quiet third party logs that are too verbose -->
+        <Logger name="org.sparkproject.jetty" level="WARN">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.sparkproject.jetty.util.component.AbstractLifeCycle" level="ERROR">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.apache.spark.repl.SparkIMain$exprTyper" level="INFO">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.apache.spark.repl.SparkILoop$SparkILoopInterpreter" level="INFO">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.apache.parquet" level="ERROR">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="parquet" level="ERROR">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <!-- # SPARK-9183: Settings to avoid annoying messages when looking up nonexistent UDFs in SparkSQL with Hive support -->
+        <Logger name="org.apache.hadoop.hive.metastore.RetryingHMSHandler" level="FATAL">
+            <AppenderRef ref="Console"/>
+        </Logger>
+        <Logger name="org.apache.hadoop.hive.ql.exec.FunctionRegistry" level="ERROR">
+            <AppenderRef ref="Console"/>
+        </Logger>
+    </Loggers>
+</Configuration>
