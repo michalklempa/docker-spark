@@ -1,0 +1,113 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-driver
+  labels:
+    app: spark
+    role: driver
+spec:
+  selector:
+    app: spark
+    role: driver
+  type: ClusterIP
+  ports:
+    - port: 7078
+      targetPort: 7078
+      protocol: TCP
+      name: rpc
+    - port: 4040
+      targetPort: 4040
+      protocol: TCP
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-driver-expose
+  labels:
+    app: spark
+    role: driver
+spec:
+  selector:
+    app: spark
+    role: driver
+  type: LoadBalancer
+  ports:
+    - port: 4040
+      targetPort: 4040
+      protocol: TCP
+      name: http
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark-driver
+  labels:
+    app: spark
+    role: driver
+spec:
+  completions: 1
+  template:
+    metadata:
+      labels:
+        app: spark
+        role: driver
+    spec:
+      restartPolicy: OnFailure
+      hostname: spark-driver
+      containers:
+        - name: spark-driver
+          image: michalklempa/spark-driver:3.0.1-hadoop2.7
+          imagePullPolicy: Never
+          command:
+            - /opt/spark/driver.sh
+          ports:
+            - containerPort: 4040
+            - containerPort: 7078
+---
+apiVersion: apps/v1
+kind: DeploymentList
+items:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: spark-executor
+      labels:
+        app: spark
+        role: executor
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: spark
+          role: executor
+      template:
+        metadata:
+          labels:
+            app: spark
+            role: executor
+        spec:
+          restartPolicy: Always
+          containers:
+            - name: spark-executor
+              image: michalklempa/spark:3.0.1-hadoop2.7
+              imagePullPolicy: Never
+              command:
+                - /opt/spark/executor.sh
+              ports:
+                - containerPort: 8080
+              env:
+                - name: SPARK_EXECUTOR_ID
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: SPARK_DRIVER_URL
+                  value: "spark://CoarseGrainedScheduler@spark-driver:7078"
+                - name: SPARK_EXECUTOR_CORES
+                  value: "1"
+                - name: SPARK_APPLICATION_ID
+                  value: test
+                - name: SPARK_EXECUTOR_POD_IP
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: status.podIP

@@ -1,7 +1,7 @@
 version: '3.7'
 services:
   spark-master:
-    image: michalklempa/spark
+    image: michalklempa/spark:3.0.1-hadoop2.7
     command: /opt/spark/master.sh
     networks:
       - spark
@@ -16,7 +16,7 @@ services:
         mode: host
 
   spark-worker-1:
-    image: michalklempa/spark
+    image: michalklempa/spark:3.0.1-hadoop2.7
     command: /opt/spark/worker.sh
     networks:
       - spark
@@ -27,7 +27,7 @@ services:
         mode: host
 
   spark-worker-2:
-    image: michalklempa/spark
+    image: michalklempa/spark:3.0.1-hadoop2.7
     command: /opt/spark/worker.sh
     networks:
       - spark
@@ -38,7 +38,7 @@ services:
         mode: host
 
   spark-worker-3:
-    image: michalklempa/spark
+    image: michalklempa/spark:3.0.1-hadoop2.7
     command: /opt/spark/worker.sh
     networks:
       - spark
@@ -49,16 +49,13 @@ services:
         mode: host
 
 #  spark-driver:
-#    image: michalklempa/spark
+#    depends_on:
+#      - spark-master
+#    image: michalklempa/spark:3.0.1-hadoop2.7
 #    command: /opt/spark/submit.sh
 #    restart: on-failure
 #    networks:
 #      - spark
-#    ports:
-#      - target: 8080
-#        published: 8084
-#        protocol: tcp
-#        mode: host
 
 networks:
   spark:

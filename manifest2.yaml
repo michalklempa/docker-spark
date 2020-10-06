@@ -1,0 +1,138 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master-internal
+  labels:
+    app: spark
+    role: master
+spec:
+  selector:
+    app: spark
+    role: master
+  type: ClusterIP
+  ports:
+    - port: 7077
+      targetPort: 7077
+      protocol: TCP
+      name: rpc
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spark-master-expose
+  labels:
+    app: spark
+    role: master
+spec:
+  selector:
+    app: spark
+    role: master
+  type: LoadBalancer
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: spark-driver
+  labels:
+    app: spark
+    role: driver
+spec:
+  completions: 1
+  template:
+    metadata:
+      labels:
+        app: spark
+        role: driver
+    spec:
+      restartPolicy: OnFailure
+      hostname: spark-driver
+      containers:
+        - name: spark-driver
+          image: michalklempa/spark-driver:3.0.1-hadoop2.7
+          imagePullPolicy: Never
+          command:
+            - /opt/spark/submit.sh
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPARK_MASTER_HOST
+              value: "spark-master-internal"
+            - name: SPARK_MASTER_PORT
+              value: "7077"
+---
+apiVersion: apps/v1
+kind: DeploymentList
+items:
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: spark-master-deployment
+      labels:
+        app: spark
+        role: master
+    spec:
+      replicas: 1
+      selector:
+        matchLabels:
+          app: spark
+          role: master
+      template:
+        metadata:
+          labels:
+            app: spark
+            role: master
+        spec:
+          restartPolicy: Always
+          hostname: spark-master
+          containers:
+            - name: spark-master
+              image: michalklempa/spark:3.0.1-hadoop2.7
+              imagePullPolicy: Never
+              command:
+                - /opt/spark/master.sh
+              ports:
+                - containerPort: 8080
+                - containerPort: 7077
+  - apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: spark-worker-deployment
+      labels:
+        app: spark
+        role: worker
+    spec:
+      replicas: 3
+      selector:
+        matchLabels:
+          app: spark
+          role: worker
+      template:
+        metadata:
+          labels:
+            app: spark
+            role: worker
+        spec:
+          restartPolicy: Always
+          containers:
+            - name: spark-worker
+              image: michalklempa/spark:3.0.1-hadoop2.7
+              imagePullPolicy: Never
+              command:
+                - /opt/spark/worker.sh
+              ports:
+                - containerPort: 8080
+              env:
+                - name: SPARK_MASTER_HOST
+                  value: "spark-master-internal"
+                - name: SPARK_MASTER_PORT
+                  value: "7077"
+
