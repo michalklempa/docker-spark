@@ -1,53 +1,47 @@
+ARG SCALA_VERSION=2.12
 ARG SPARK_VERSION=3.0.1
 ARG HADOOP_VERSION=2.7
-ARG SCALA_VERSION=2.12
 
-FROM alpine:3 as build
+FROM curlimages/curl as build
 ARG SPARK_VERSION
 ARG HADOOP_VERSION
 
-ENV PROJECT_BASE_DIR /opt/spark
-ENV PROJECT_HOME ${PROJECT_BASE_DIR}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
-ENV PROJECT_DIST_FILE_NAME="spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz"
+ENV UPSTREAM_FILE_NAME="spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz"
+ENV LOCAL_FILE_NAME="/tmp/${UPSTREAM_FILE_NAME}"
+ENV SPARK_HOME="/opt/spark"
 
-RUN apk --update add --no-cache \
-  && apk add --no-cache ca-certificates openssl curl wget \
-  && update-ca-certificates \
-  && rm -f /var/cache/apk/*
+RUN curl -# "$(curl -s https://www.apache.org/dyn/closer.cgi\?preferred\=true)spark/spark-${SPARK_VERSION}/${UPSTREAM_FILE_NAME}" --output "${LOCAL_FILE_NAME}"
+ENV SPARK_TMP="/tmp/spark"
+RUN mkdir ${SPARK_TMP}
+RUN tar -xvzf "${LOCAL_FILE_NAME}" --strip-components 1 -C "${SPARK_TMP}"
+RUN echo "${UPSTREAM_FILE_NAME}" > "${SPARK_TMP}/.spark-version"
 
-RUN mkdir -p ${PROJECT_HOME} \
-    && DOWNLOAD_DIST_URL="$(curl -s https://www.apache.org/dyn/closer.cgi\?preferred\=true)spark/spark-${SPARK_VERSION}/${PROJECT_DIST_FILE_NAME}" \
-    && CURL_OUTPUT="${PROJECT_BASE_DIR}/${PROJECT_DIST_FILE_NAME}" \
-    && curl -# ${DOWNLOAD_DIST_URL} --output ${CURL_OUTPUT} \
-    && tar -xvzf ${CURL_OUTPUT} --strip-components 1 -C ${PROJECT_HOME} \
-    && rm ${CURL_OUTPUT}
-
-FROM openjdk:11-slim-buster as final
-ARG SPARK_VERSION
-ARG HADOOP_VERSION
+FROM azul/zulu-openjdk-debian:11 as final
 ARG SCALA_VERSION
+ARG SPARK_VERSION
+ARG SPARK_TMP="/tmp/spark"
 
-ENV PROJECT_BASE_DIR /opt/spark
-ENV PROJECT_HOME ${PROJECT_BASE_DIR}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
+ENV SPARK_HOME="/opt/spark"
+RUN mkdir ${SPARK_HOME}
 
-COPY --from=build ${PROJECT_HOME}/bin ${PROJECT_HOME}/bin
-COPY --from=build ${PROJECT_HOME}/conf ${PROJECT_HOME}/conf
-COPY --from=build ${PROJECT_HOME}/jars ${PROJECT_HOME}/jars
-COPY --from=build ${PROJECT_HOME}/LICENSE ${PROJECT_HOME}/LICENSE
-COPY --from=build ${PROJECT_HOME}/NOTICE ${PROJECT_HOME}/NOTICE
-COPY --from=build ${PROJECT_HOME}/README.md ${PROJECT_HOME}/README.md
-COPY --from=build ${PROJECT_HOME}/RELEASE ${PROJECT_HOME}/.md
-COPY --from=build ${PROJECT_HOME}/sbin ${PROJECT_HOME}/sbin
+COPY --from=build ${SPARK_TMP}/bin ${SPARK_HOME}/bin
+COPY --from=build ${SPARK_TMP}/conf ${SPARK_HOME}/conf
+COPY --from=build ${SPARK_TMP}/jars ${SPARK_HOME}/jars
+COPY --from=build ${SPARK_TMP}/LICENSE ${SPARK_HOME}/LICENSE
+COPY --from=build ${SPARK_TMP}/NOTICE ${SPARK_HOME}/NOTICE
+COPY --from=build ${SPARK_TMP}/README.md ${SPARK_HOME}/README.md
+COPY --from=build ${SPARK_TMP}/RELEASE ${SPARK_HOME}/RELEASE
+COPY --from=build ${SPARK_TMP}/sbin ${SPARK_HOME}/sbin
+COPY --from=build ${SPARK_TMP}/.spark-version ${SPARK_HOME}/.spark-version
 
-ENV PATH $PATH:$PROJECT_HOME/bin
+ENV PATH $PATH:$SPARK_HOME/bin
 
-COPY ./scripts/*.sh ${PROJECT_BASE_DIR}/
+COPY ./docker/*.sh /
 
-ENV SPARK_HOME ${PROJECT_HOME}
-ENV SPARK_MASTER_HOST spark-master
-ENV SPARK_MASTER_PORT 7077
-ENV SPARK_SCALA_VERSION ${SCALA_VERSION}
+ENV SPARK_MASTER_HOST=spark-master
+ENV SPARK_MASTER_PORT=7077
+ENV SPARK_SCALA_VERSION=${SCALA_VERSION}
 
-WORKDIR ${PROJECT_HOME}
+WORKDIR ${SPARK_HOME}
 EXPOSE 8080
 CMD [ "/bin/bash" ]
