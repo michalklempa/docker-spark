@@ -1,0 +1,46 @@
+version: '3.7'
+services:
+  spark-master:
+    image: michalklempa/spark-sql-example
+    command: /master.sh
+    networks:
+      - spark
+    ports:
+      - target: 8080
+        published: 8080
+        protocol: tcp
+        mode: host
+      - target: 7077
+        published: 7077
+        protocol: tcp
+        mode: host
+
+  spark-worker-1:
+    image: michalklempa/spark-sql-example
+    command: /worker.sh
+    networks:
+      - spark
+
+  spark-worker-2:
+    image: michalklempa/spark-sql-example
+    command: /worker.sh
+    networks:
+      - spark
+
+  spark-worker-3:
+    image: michalklempa/spark-sql-example
+    command: /worker.sh
+    networks:
+      - spark
+
+  spark-driver:
+    depends_on:
+      - spark-master
+    image: michalklempa/spark-sql-example
+    command: /submit.sh
+    restart: on-failure
+    networks:
+      - spark
+
+networks:
+  spark:
