@@ -37,6 +37,7 @@ COPY --from=build ${SPARK_TMP}/.spark-version ${SPARK_HOME}/.spark-version
 ENV PATH $PATH:$SPARK_HOME/bin
 
 COPY ./docker/*.sh /
+COPY ./conf/* ${SPARK_HOME}/conf/
 
 ENV SPARK_MASTER_HOST=spark-master
 ENV SPARK_MASTER_PORT=7077

@@ -2,6 +2,8 @@
 
 env
 
+export SPARK_PUBLIC_DNS=$(hostname -i)
+
 java ${JAVA_OPTS} \
   -cp "${JAR}:${SPARK_HOME}/conf:${SPARK_HOME}/jars/*" \
   org.apache.spark.deploy.SparkSubmit \
