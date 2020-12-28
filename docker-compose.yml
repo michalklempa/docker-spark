@@ -2,7 +2,7 @@ version: '3.7'
 services:
   spark-master:
     image: michalklempa/spark:3.0.1-hadoop2.7
-    command: /opt/spark/master.sh
+    command: /master.sh
     networks:
       - spark
     ports:
@@ -17,19 +17,19 @@ services:
 
   spark-worker-1:
     image: michalklempa/spark-driver:3.0.1-hadoop2.7
-    command: /opt/spark/worker.sh
+    command: /worker.sh
     networks:
       - spark
 
   spark-worker-2:
     image: michalklempa/spark-driver:3.0.1-hadoop2.7
-    command: /opt/spark/worker.sh
+    command: /worker.sh
     networks:
       - spark
 
   spark-worker-3:
     image: michalklempa/spark-driver:3.0.1-hadoop2.7
-    command: /opt/spark/worker.sh
+    command: /worker.sh
     networks:
       - spark
 
@@ -37,11 +37,10 @@ services:
 #    depends_on:
 #      - spark-master
 #    image: michalklempa/spark:3.0.1-hadoop2.7
-#    command: /opt/spark/submit.sh
+#    command: /submit.sh
 #    restart: on-failure
 #    networks:
 #      - spark
 
 networks:
   spark:
-    external: true

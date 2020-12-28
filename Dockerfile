@@ -8,7 +8,6 @@ ARG HADOOP_VERSION
 
 ENV UPSTREAM_FILE_NAME="spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz"
 ENV LOCAL_FILE_NAME="/tmp/${UPSTREAM_FILE_NAME}"
-ENV SPARK_HOME="/opt/spark"
 
 RUN curl -# "$(curl -s https://www.apache.org/dyn/closer.cgi\?preferred\=true)spark/spark-${SPARK_VERSION}/${UPSTREAM_FILE_NAME}" --output "${LOCAL_FILE_NAME}"
 ENV SPARK_TMP="/tmp/spark"
